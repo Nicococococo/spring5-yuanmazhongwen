@@ -191,7 +191,7 @@ class PostProcessorRegistrationDelegate {
 
 	public static void registerBeanPostProcessors(
 			ConfigurableListableBeanFactory beanFactory, AbstractApplicationContext applicationContext) {
-
+		//从bd map中拿出来 BeanPostProcessor 放到list里面 以后好使用
 		String[] postProcessorNames = beanFactory.getBeanNamesForType(BeanPostProcessor.class, true, false);
 
 		// Register BeanPostProcessorChecker that logs an info message when

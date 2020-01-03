@@ -174,11 +174,11 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 			synchronized (this.singletonObjects) {
 				singletonObject = this.earlySingletonObjects.get(beanName);
 				if (singletonObject == null && allowEarlyReference) {
-					//@@@singletonFactories这个缓存的作用同时为了解决在循环依赖时候的aop，当循环依赖时 要保证能实现aop需要用工厂来生产对象，而不能直接new出来，所以这里的map是工厂的原因
+					//@@@singletonFactories这个缓存的作用同时为了解决在循环依赖时候的aop，当循环依赖时 要保证能实现aop需要用工厂来生产对象，而不能直接new出来，所以这里的二级缓存singletonFactories map是工厂的原因
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
 						singletonObject = singletonFactory.getObject();
-						//放到三级缓存
+						//放到三级缓存 earlySingletonObjects作用：多个类不止2个类循环依赖时候不需要通过singletonFactories再产生一次了，解决性能问题 每次都从singletonFactories获取还需要产生效率慢
 						this.earlySingletonObjects.put(beanName, singletonObject);
 						//从二级缓存中清除？为什么需要清除：为了GC 效率啊！！
 						this.singletonFactories.remove(beanName);
@@ -210,6 +210,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (logger.isDebugEnabled()) {
 					logger.debug("Creating shared instance of singleton bean '" + beanName + "'");
 				}
+				//把beanName添加到集合中，表示bean正在创建当中
 				beforeSingletonCreation(beanName);
 				boolean newSingleton = false;
 				boolean recordSuppressedExceptions = (this.suppressedExceptions == null);

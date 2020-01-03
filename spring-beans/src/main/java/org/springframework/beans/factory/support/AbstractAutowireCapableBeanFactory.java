@@ -488,6 +488,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Prepare method overrides.
 		//校验和准备Bean中的方法覆盖
+		//出来lookup-method和replace-method配置，spring将这两个配置统一称为overrides
 		try {
 			mbdToUse.prepareMethodOverrides();
 		}
@@ -499,7 +500,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		try {
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			//如果Bean配置了初始化前和初始化后的处理器，则试图返回一个需要创建Bean的代理对象
-			//@@@第一次调用后置处理器 如果返回的不为空则直接返回（InstantiationAwareBeanPostProcessor）（跟aop有关系的 有两个后置处理跟aop有关系，还有一个是BeanPostProcessor）
+			//@@@第一次调用后置处理器 如果返回的不为空则直接返回（实现InstantiationAwareBeanPostProcessor接口就行，通过这个接口中的方法，可以直接返回bean出去，这个对象中所有的依赖都不维护了 一般是不会去用到的）
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -595,7 +596,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						"' to allow for resolving potential circular references");
 			}
 			//这里是一个匿名内部类，为了防止循环引用，尽早持有对象的引用
-			//@@@getEarlyBeanReference中包含第四次后置处理器（SmartInstantiationAwareBeanPostProcessor）（为了处理循环依赖时会把bean：是对象还不是完整的bean 放到临时缓存当中）
+			//@@@getEarlyBeanReference中包含第四次后置处理器（SmartInstantiationAwareBeanPostProcessor）（判断是否需要aop！）（为了处理循环依赖时会把bean：是对象还不是完整的bean 放到临时缓存当中）
+			/**
+			 * 如果使用aop的话 会有一个类AbstractAutoProxyCreator继承SmartInstantiationAwareBeanPostProcessor后置处理器，其中getEarlyBeanReference()方法会 为了解决单例bean之间的循环依赖问题，提前将aop代理对象暴露出去。
+			 * （initializeBean中再执行aop代理时，会直接从这里生产的缓存中获取，不需要再生成代理类了）
+			 */
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -607,7 +612,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			//将Bean实例对象封装，并且Bean定义中配置的属性值赋值给实例对象
 			//@@@populateBean中包含第五次后置处理器（InstantiationAwareBeanPostProcessor：postProcessAfterInstantiation方法：是否自动装配属性 返回值是boolean）
 			populateBean(beanName, mbd, instanceWrapper);
-			//初始化Bean对象
+			//初始化Bean对象 和一些后置处理器的执行 （包含aop代理）
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
@@ -1842,6 +1847,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			//@@@第八次后置处理器 网上常说的后置处理器最原始的接口BeanPostProcessor中postProcessAfterInitialization方法 在bean初始后前执行
 			//@@@第九次后置处理器（销毁的时候调用）annotationConfigApplicationContext.close(); 这里没找他 不是在这里，没找到先写这了
 			//aop在这个后置处理器中即这个AnnotationAwareAspectJAutoProxyCreator处理器 通过这个改变bean 变成一个代理对象
+			/**
+			 * wrappedBean返回出去，判断循环所有的BeanPostProcessor，
+			 * 然后我们aop什么时候被加进来的后置处理器？
+			 * @EnableAspectJAutoProxy中的@Import(AspectJAutoProxyRegistrar.class)，AspectJAutoProxyRegistrar这个类实现了ImportBeanDefinitionRegistrar，这个类中加入了一个bean后置处理器AnnotationAwareAspectJAutoProxyCreator，这个后置处理器对我们的实体类进行一个代理一个aop的增强
+			 */
 			wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
 		}
 
